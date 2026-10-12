@@ -1,0 +1,42 @@
+```yaml title="Revisión automática"
+name: Revision Cestaforo
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: revision
+  cancel-in-progress: false
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Revisar tiendas
+        id: revisar
+        continue-on-error: true
+        run: python3 cestaforo.py https://cestforo-hme4qv.polsia.app
+
+      - name: Guardar historial
+        run: |
+          git config user.name "cestaforo-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add historial.csv
+          git commit -m "Revision $(date -u +'%Y-%m-%d %H:%M') UTC" || echo "Sin cambios"
+          git pull --rebase || true
+          git push || echo "No se pudo subir el historial"
+
+      - name: Avisar si hay caida
+        if: steps.revisar.outcome == 'failure'
+        run: |
+          echo "Hay al menos una tienda caida. Revisa historial.csv."
+          exit 1
+```
